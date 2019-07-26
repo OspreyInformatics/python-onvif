@@ -87,7 +87,8 @@ class ONVIFService(object):
     @safe_func
     def __init__(self, xaddr, user, passwd, url,
                  cache_location='/tmp/suds', cache_duration=None,
-                 encrypt=True, daemon=False, ws_client=None, no_cache=False, portType=None, dt_diff = None):
+                 encrypt=True, daemon=False, ws_client=None, no_cache=False,
+                 portType=None, dt_diff = None, timeout=None):
 
         if not os.path.isfile(url):
             raise ONVIFError('%s doesn`t exist!' % url)
@@ -107,13 +108,19 @@ class ONVIFService(object):
         # Convert pathname to url
         self.url = urlparse.urljoin('file:', urllib.pathname2url(url))
         self.xaddr = xaddr
+
+        soap_kwargs = {}
+        if timeout:
+            soap_kwargs['timeout'] = timeout
+
         # Create soap client
         if not ws_client:
             self.ws_client = Client(url=self.url,
                                     location=self.xaddr,
                                     cache=cache,
                                     port=portType,
-                                    headers={'Content-Type': 'application/soap+xml'})
+                                    headers={'Content-Type': 'application/soap+xml'},
+                                    **soap_kwargs)
         else:
             self.ws_client = ws_client
             self.ws_client.set_options(location=self.xaddr)
@@ -239,7 +246,8 @@ class ONVIFCamera(object):
                          'imaging': True, 'events': True, 'analytics': True }
     def __init__(self, host, port ,user, passwd, wsdl_dir=os.path.join(os.path.dirname(os.path.dirname(__file__)), "wsdl"),
                  cache_location=None, cache_duration=None,
-                 encrypt=True, daemon=False, no_cache=False, adjust_time=False):
+                 encrypt=True, daemon=False, no_cache=False,
+                 adjust_time=False, timeout=None):
         self.host = host
         self.port = int(port)
         self.user = user
@@ -251,6 +259,7 @@ class ONVIFCamera(object):
         self.daemon = daemon
         self.no_cache = no_cache
         self.adjust_time = adjust_time
+        self.timeout = timeout
 
         # Active service client container
         self.services = { }
@@ -373,14 +382,19 @@ class ONVIFCamera(object):
                                              self.cache_duration,
                                              self.encrypt,
                                              self.daemon,
-                                             no_cache=self.no_cache, portType=portType, dt_diff=self.dt_diff)
+                                             no_cache=self.no_cache,
+                                             portType=portType,
+                                             dt_diff=self.dt_diff,
+                                             timeout=self.timeout)
             # No template, create new service from wsdl document.
             # A little time-comsuming
             else:
                 service = ONVIFService(xaddr, self.user, self.passwd,
                                        wsdl_file, self.cache_location,
                                        self.cache_duration, self.encrypt,
-                                       self.daemon, no_cache=self.no_cache, portType=portType, dt_diff=self.dt_diff)
+                                       self.daemon, no_cache=self.no_cache,
+                                       portType=portType, dt_diff=self.dt_diff,
+                                       timeout=self.timeout)
 
             self.services[name] = service
 
