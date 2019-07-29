@@ -1,6 +1,7 @@
 __version__ = '0.0.1'
 
 import os.path
+import re
 import urlparse
 import urllib
 from threading import Thread, RLock
@@ -247,7 +248,7 @@ class ONVIFCamera(object):
     def __init__(self, host, port ,user, passwd, wsdl_dir=os.path.join(os.path.dirname(os.path.dirname(__file__)), "wsdl"),
                  cache_location=None, cache_duration=None,
                  encrypt=True, daemon=False, no_cache=False,
-                 adjust_time=False, timeout=None):
+                 adjust_time=False, timeout=None, force_provided_host=False):
         self.host = host
         self.port = int(port)
         self.user = user
@@ -260,6 +261,7 @@ class ONVIFCamera(object):
         self.no_cache = no_cache
         self.adjust_time = adjust_time
         self.timeout = timeout
+        self.force_provided_host = force_provided_host
 
         # Active service client container
         self.services = { }
@@ -287,7 +289,18 @@ class ONVIFCamera(object):
             try:
                 if name.lower() in SERVICES:
                     ns = SERVICES[name.lower()]['ns']
-                    self.xaddrs[ns] = capability['XAddr']
+                    service_xaddr = capability['XAddr']
+                    if self.force_provided_host:
+                        # regex to capture everything from http[s]:// to the following /
+                        host_regex = re.compile(r"^(https?://)(.*?)/", re.IGNORECASE)
+                        provided_host_and_port = "{}:{}".format(self.host, self.port)
+                        replacement_xaddr = re.sub(
+                            host_regex,
+                            r"\g<1>{}/".format(provided_host_and_port),
+                            service_xaddr
+                        )
+                        service_xaddr = replacement_xaddr
+                    self.xaddrs[ns] = service_xaddr
             except Exception:
                 logger.exception('Unexcept service type')
 
